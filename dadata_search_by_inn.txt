@@ -1,0 +1,104 @@
+library(httr)
+library(readxl)
+library(stringi)
+
+url <- "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/party"
+
+dadata_search <- function(search) {
+  foundDF <- data.frame()
+  
+  headers <- c(
+    "Content-Type" = "application/json",
+    Accept = "application/json",  
+    Authorization = "Token XXX") # НУЖНО ЗАРЕГИСТРИРОВАТЬСЯ И ПОЛУЧИТЬ ТОКЕН в формате "Token символы"
+  
+  
+  
+  for (i in search) {
+    if (stri_length(i) == 9 | stri_length(i) == 11)     {
+      i = stri_c(0, i)
+    } else {
+      i = i
+    }
+    
+    print(i)
+    #cat(paste0(i, "/", length(search)))
+    body <- list(query = i)
+    
+    
+    r <- POST(url = url,  
+              config = c(add_headers(headers), accept_json()),  
+              body = body,
+              encode = "json")
+    
+    
+    t <- content(r)
+    
+    test <- try(t$suggestions[[1]]$value, silent = T)
+    
+    
+    #### Если ошибка и ничего не найдено
+    
+    if("try-error" %in% class(test)) {
+      inn <- "Ошибка"
+      inn_found <- "Ошибка"
+      name <- "Ошибка"
+      status <- "Ошибка"
+      n_branches <- "Ошибка"
+      ogrn <- "Ошибка"
+      okpo <- "Ошибка"
+      okato <- "Ошибка"
+      oktmo <- "Ошибка"
+      okogu <- "Ошибка"
+      okved <- "Ошибка"
+      geo_lat <-"Ошибка"
+      geo_lon <- "Ошибка"
+      address <- "Ошибка"
+      opf_name <- "Ошибка"
+      opf_code<- "Ошибка"
+      liq_date <- "Ошибка"
+    } else {
+      
+      #### Если НЕ ошибка и найдено
+      
+      
+     number_of_suggestion <- ifelse(i == t$suggestions[[1]]$data$inn, 1, 2)
+    
+     inn <- i
+     inn_found <- t$suggestions[[number_of_suggestion]]$data$inn
+     
+     name <- t$suggestions[[number_of_suggestion]]$value
+     status <- t$suggestions[[number_of_suggestion]]$data$state$status
+     n_branches <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$branch_count), NA, t$suggestions[[number_of_suggestion]]$data$branch_count)
+              
+     ogrn <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$ogrn), NA, t$suggestions[[number_of_suggestion]]$data$ogrn)
+     okpo <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$okpo), NA, t$suggestions[[number_of_suggestion]]$data$okpo)
+     okato <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$okato), NA, t$suggestions[[number_of_suggestion]]$data$okato)
+     oktmo <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$oktmo), NA, t$suggestions[[number_of_suggestion]]$data$oktmo)
+     okogu <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$okogu), NA, t$suggestions[[number_of_suggestion]]$data$okogu)
+     okved <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$okved), NA, t$suggestions[[number_of_suggestion]]$data$okved)
+     opf_name <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$opf$full), NA,t$suggestions[[number_of_suggestion]]$data$opf$full)
+              opf_code <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$opf$code), NA,t$suggestions[[number_of_suggestion]]$data$opf$code)
+              geo_lat <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$address$data$geo_lat), NA,t$suggestions[[number_of_suggestion]]$data$address$data$geo_lat)
+              geo_lon <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$address$data$geo_lon), NA,t$suggestions[[number_of_suggestion]]$data$address$data$geo_lon)
+              address <- ifelse(is.null(t$suggestions[[number_of_suggestion]]$data$address$unrestricted_value), NA,t$suggestions[[number_of_suggestion]]$data$address$unrestricted_value)
+              
+              z <- t$suggestions[[number_of_suggestion]]$data$state$liquidation_date
+              liq_date <-  
+                ifelse(is.null(z), "ACTIVE", as.character(as.POSIXct((z)/1000, origin = "1970-01-01")))
+              
+            
+    }
+    
+    found <- data.frame(i, name, inn, inn_found, status, n_branches,
+                        ogrn, okpo, okato, oktmo, okogu,
+                        okved, geo_lat, geo_lon, address, liq_date,
+                        opf_code, opf_name)
+    
+    foundDF <- rbind.data.frame(foundDF, found)
+    
+  }
+  
+  return(foundDF)
+  
+}
